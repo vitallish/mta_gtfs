@@ -1,0 +1,6 @@
+sensative_info.*
+.R*
+.idea*
+*.pyc
+*.Rproj
+sept2_*
