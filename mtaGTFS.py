@@ -143,11 +143,12 @@ class mtaGTFS(object):
             else:
                 raw_unscheduled_list.append(raw_data)
         pd_columns = ['full_id', 'entity_id', 'type','route_id','direction','start_date','route_plan']
+        pd_index = ['type','full_id']
         self.trainIds = pd.DataFrame(columns = pd_columns, 
-            data = raw_list)
+            data = raw_list).set_index(pd_index)
         self.unscheduledTrains = pd.DataFrame(columns = pd_columns, 
-            data = raw_unscheduled_list)
-    def getIndividualTrain(self, full_id, log = False):
+            data = raw_unscheduled_list).set_index(pd_index)
+    def _getIndividualTrain(self, full_id, log = False):
         #finds all the entities with particular full_id, returns them as a list.
         #self.buildTrainIds()
         ent_iter = self.trainIds.entity_id[self.trainIds.full_id == full_id]
@@ -161,10 +162,12 @@ class mtaGTFS(object):
         # stops will only be stops that are to be made, and past stops are not listed.
         # returned as a DataFrame
         raw_list = []
-        select_row = (self.trainIds.full_id == full_id) & (self.trainIds.type=='scheduled')
-        if(select_row.sum() !=1):
-            print(full_id +" has multiple entries in trainIds.")
-        entity_num = int(self.trainIds.ix[select_row,'entity_id'])
+        #select_row = (self.trainIds.full_id == full_id) & (self.trainIds.type=='scheduled')
+        #if(select_row.sum() !=1):
+            #print(full_id +" has multiple entries in trainIds.")
+        
+        #entity_num = int(self.trainIds.ix[select_row,'entity_id'])
+        entity_num = self.trainIds.ix[('scheduled',full_id),'entity_id']
         stops = self.getEntity(entity_num).trip_update.stop_time_update
         
         # first/last stops to do not have departure/arrival times, respectfully
@@ -180,6 +183,7 @@ class mtaGTFS(object):
             stop_id = stop.stop_id
             raw_list.append([full_id,stop_id,arrival,departure])
         out = pd.DataFrame(columns=['full_id','stop_id','arrival','departure'], data = raw_list)        
+        #out.set_index(['full_id','stop_id'],inplace =True)        
         return out
         
     def getEnroute(self, full_id):
@@ -194,10 +198,9 @@ class mtaGTFS(object):
         
         Raises:
             N/A        
-        """
-        
-        select_row = (self.trainIds.full_id == full_id) & (self.trainIds.type =='enroute')
-        entity_num = int(self.trainIds.ix[select_row,'entity_id'])
+        """        
+        # select_row = (self.trainIds.full_id == full_id) & (self.trainIds.type =='enroute')
+        entity_num = self.trainIds.ix[('enroute',full_id),'entity_id']
         vehicle = self.getEntity(entity_num).vehicle
         
         stop_id = vehicle.stop_id
@@ -218,30 +221,53 @@ class mtaGTFS(object):
         out = {'full_id': full_id, 'stop_id': stop_id, 
                    'current_status':current_status, 'last_ping':last_ping,
                    'current_stop_sequence':current_stop_sequence}
-        return out     
+        return out
+    def getUniqueTrains(self, type):
+        train_ids = self.trainIds.ix[type].index
+        if(not train_ids.is_unique):
+            #raise an error here
+            print type + " trains' Ids are not unique" 
+        return train_ids.values
+        
     def buildAllEnroute(self):
-        select_row = (self.trainIds.type=='enroute')
-        enroute_train_ids = np.unique(self.trainIds.ix[select_row,'full_id'])
+        # sched_trains_ids = self.trainIds.ix['enroute'].index
+        # #sched_trains_ids = sched_trains_ids.order()
+        # if(not sched_trains_ids.is_unique):
+            # #raise an error here
+            # print "Scheduled trains' Ids are not unique" 
+    
+        # select_row = (self.trainIds.type=='enroute')
+        enroute_train_ids = self.getUniqueTrains(type ='enroute')
+        
+        #enroute_train_ids = np.unique(self.trainIds.ix[select_row,'full_id'])
         dict_list =[self.getEnroute(fullid_train) for fullid_train in enroute_train_ids]
-        out = pd.DataFrame(data = dict_list)
+        out = pd.DataFrame(data = dict_list).set_index('full_id')
         # if(self.stationlkp is None):
             # self.fetchStationNames()
         # self.enrouteTrains  = out.merge(self.stationlkp, how ='left',
             # on = 'stop_id')        
-        self.enrouteTrains = out
+        self.enrouteTrains = out.sort()
     def buildAllStops(self):
         # builds all scheduled stops 
-        select_row = (self.trainIds.type=='scheduled')
-        sched_train_ids  = np.unique(self.trainIds.ix[select_row,'full_id'])
-        df_list = [self.getStops(fullid_train) for fullid_train in sched_train_ids]
+        #select_row = (self.trainIds.type=='scheduled')
+        #sched_train_ids  = np.unique(self.trainIds.ix[select_row,'full_id'])
+        # sched_trains_ids = self.trainIds.ix['scheduled'].index
+        # #sched_trains_ids = sched_trains_ids.order()
+        # if(not sched_trains_ids.is_unique):
+            # #raise an error here
+            # print "Scheduled trains' Ids are not unique" 
+        unique_ids = self.getUniqueTrains(type ='scheduled')
+        
+        df_list = [self.getStops(fullid_train) for fullid_train in unique_ids]
         out =pd.concat(df_list, ignore_index=True)
         # if(self.stationlkp is None):
             # self.fetchStationNames()
         # self.scheduledStops  = out.merge(self.stationlkp, how ='left',
             # on = 'stop_id')
-        self.scheduledStops = out
+        out.set_index(['full_id','stop_id'], inplace = True)
+        self.scheduledStops = out.sortlevel(0)
         
-    def fetchStationNames(self):
+    def _fetchStationNames(self):
         # get station names. This should only happen once when we have the update script
         import sqlalchemy
         import os
@@ -257,7 +283,7 @@ class mtaGTFS(object):
             engine = sqlalchemy.create_engine('engine_text')
             self.stationlkp = pd.read_sql_table('stops',engine, columns = ['stop_id','stop_name','stop_lat','stop_lon'])    
     
-    def filterTrains(self, route_id = None, direction = None, start_date=datetime.now().date(), type_t = 'scheduled'):
+    def _filterTrains(self, route_id = None, direction = None, start_date=datetime.now().date(), type_t = 'scheduled'):
         # returns full_ids for trains that fulfill specfic criteria
         if  route_id is not None:
             route_sel = (self.trainIds.route_id==str(route_id))
