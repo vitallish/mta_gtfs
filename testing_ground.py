@@ -2,11 +2,13 @@ import sensative_info as si
 import mtaGTFS
 import sqlalchemy
 import pandas as pd
+import numpy as np
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 import datetime
 import threading
 import time
+
 
 
 engine = mtaGTFS.connect_to_mysql(si, echo =False)
@@ -27,67 +29,103 @@ session = Session()
 
 
 def createEnrouteObject(tup, tf):
-        return Enroute_trains(full_id = tup[3], stop_id = tup[5], 
-        current_status = tup[1], last_ping = tup[4], timeFeed = tf,  
+        return Enroute_trains(full_id = tup[0], stop_id = tup[4], 
+        current_status = tup[1], last_ping = tup[3], timeFeed = tf,  
         stop_sequence = tup[2])
 
 def createTrainIdObject(tup):
-    return TrainID(full_id = tup[1], route_plan = tup[7] , direction = tup[5], 
-    start_date = tup[6] , route_id = tup[4])
+    return TrainID(full_id = tup[0], route_plan = tup[5] , direction = tup[3], start_date = tup[4] , route_id = tup[2])
     
 def createSchedStopObject(tup,tf):
-        return Sched_stops(full_stop_id = (tup[1] +tup[2]), full_id = tup[1], 
-        stop_id = tup[2], arrival = tup[3], departure = tup[4], timeFeed = tf)
+        return Sched_stops(full_stop_id = tup[0], full_id = tup[1],  stop_id = tup[2], arrival = tup[3], departure = tup[4], timeFeed = tf)
 
-next_call = time.time()        
-def run_subway_gather():
+def updateTrainIds(mta_obj):
+    unique_trains = mta_obj.trainIds.ix['scheduled']
+    ids = unique_trains.index.values
+    
+    trains_in_db = session.query(TrainID).filter(TrainID.full_id.in_(ids))
+    ids_in_db = [row.full_id for row in trains_in_db]
+    
+    new_trains_sel = unique_trains.index.isin(ids_in_db)
+    new_trains_sel = np.logical_not(new_trains_sel)
+    trainsobj_to_add = [createTrainIdObject(tup) for tup in 
+        unique_trains.ix[new_trains_sel].itertuples()]
+    session.add_all(trainsobj_to_add)
+
+def updateSchedStops(mta_obj):
+    sched_ids = mta_obj.scheduledStops.index.values
+    updated_ids  = []
+    stops_in_db = session.query(Sched_stops).filter(Sched_stops.full_stop_id.in_(sched_ids))  
+    
+    for row in stops_in_db:
+        db_update = mta_obj.scheduledStops.ix[row.full_stop_id]
+        row.arrival = db_update.arrival
+        row.departure = db_update.departure
+        updated_ids.append(row.full_stop_id)
+    
+    new_trains_sel = mta_obj.scheduledStops.index.isin(updated_ids)
+    new_trains_sel = np.logical_not(new_trains_sel)    
+    
+    stops_to_add = [createSchedStopObject(tup, mta_obj.timeFeed) for tup in mta_obj.scheduledStops.ix[new_trains_sel].itertuples()]
+    session.add_all(stops_to_add)
+    
+def updateEnrouteTrains(mta_obj):
+    session.execute(metadata.tables['enroute_trains'].delete())
+    temp = [createEnrouteObject(tup, mta_obj.timeFeed) for tup in mta_obj.enrouteTrains.itertuples()]        
+    session.add_all(temp)
+    
+    enroute_trains = mta_obj.enrouteTrains.reset_index()
+    enroute_trains['full_stop_id'] = enroute_trains.full_id+enroute_trains.stop_id
+    enroute_trains.set_index('full_stop_id', inplace =True)
+    enroute_ids = enroute_trains.index.values
+    stops_in_db = session.query(Sched_stops).\
+        filter(Sched_stops.full_stop_id.in_(enroute_ids)).\
+        filter(Sched_stops.enroute_conf== 0)
+    for row in stops_in_db:
+        #db_update = enroute_trains.ix[row.full_stop_id]
+        row.enroute_conf = enroute_trains.ix[row.full_stop_id,'current_stop_sequence']
+        
+    
+def push_to_db(mta_obj):
+    mta_obj.updateFeed(single_id = True)
+    logger.info('Feed Updated')
+    updateTrainIds(mta_obj)
+    logger.info('Train Ids Merged')
+    updateEnrouteTrains(mta_obj)
+    logger.info('Enroute Trains Update')
+    updateSchedStops(mta_obj)
+    logger.info('Scheduled Stops Merged')
+    session.commit()
+    logger.info('Data Pushed to Database')
+        
+import logging
+logger = logging.getLogger('irt_test')
+logger.setLevel(logging.DEBUG)
+# create file handler which logs even debug messages
+fh = logging.FileHandler('logs/sept20.log')
+fh.setLevel(logging.DEBUG)
+# create console handler with a higher log level
+ch = logging.StreamHandler()
+ch.setLevel(logging.ERROR)
+# create formatter and add it to the handlers
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+# add the handlers to the logger
+logger.addHandler(fh)
+logger.addHandler(ch)
+
+
+irt = mtaGTFS.mtaGTFS(api_key= si.api_key, single_id=True)
+
+next_call = time.time()
+def loop_update():    
     global next_call
     next_call += 30
-    start = datetime.datetime.now().ctime()
-    print start
     try:
-        nice_irt = mtaGTFS.mtaGTFS(api_key = si.api_key)  
-    except DecodeError:
-        with open('logs/sept-15.csv', 'a') as f:
-            f.write(start +",DecodeError\n")
-        threading.Timer( next_call - time.time(), run_subway_gather ).start()
-        return
-    
-    
-    ok1 = session.query(TrainID).all()
-    ok2 = session.query(Sched_stops).all()
+        push_to_db(irt)
+    except Exception, e:
+        logger.error(str(e)) 
+    threading.Timer( next_call - time.time(), loop_update).start()
 
-    trainIds_unique = nice_irt.trainIds.drop_duplicates('full_id')
-    trains_to_add = [createTrainIdObject(tup) for tup in trainIds_unique.itertuples()]
-    trains_to_add = [session.merge(trainIds) for trainIds in trains_to_add]
-
-    session.execute(metadata.tables['enroute_trains'].delete())
-    temp = [createEnrouteObject(tup, nice_irt.timeFeed) for tup in nice_irt.enrouteTrains.itertuples()]        
-    session.add_all(temp)
-
-    sched_stops_new = [createSchedStopObject(tup, nice_irt.timeFeed) for tup in nice_irt.scheduledStops.itertuples()]
-    sched_stops_new = [session.merge(sched_stop) for sched_stop in sched_stops_new]
-
-
-    session.commit()
-    stop = datetime.datetime.now().ctime()
-    print stop
-    with open('logs/sept-15.csv', 'a') as f:
-            f.write(start +","+stop+"\n")
-    threading.Timer( next_call - time.time(), run_subway_gather ).start()
-
-    
-
-
-run_subway_gather()
-#nice_irt.trainIds  
-
-        
-# all_stops = session.query(Stops).order_by(Stops.stop_id)
-# for instance in all_stops:
-    # print instance.stop_id, instance.stop_name
-    
-
-#only written to database with session.commit()
-#stops = sqlalchemy.Table('stops', metadata, autoload = True)
-#stops.select().execute().fetchone()
+loop_update()

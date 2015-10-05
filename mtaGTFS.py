@@ -46,7 +46,7 @@ def connect_to_mysql(si, echo = False):
     return sqlalchemy.create_engine(engine_text, echo = echo)
 
 class mtaGTFS(object):
-    def __init__(self, subway_group = "irt", api_key=None, buildTables = True):
+    def __init__(self, subway_group = "irt", api_key=None, buildTables = True, single_id = False):
         """ Inits mtaGTFS with the following arguments        
         Args:
             subway_group (str): which subway type to read in. {"irt", "l", "sir"}
@@ -69,9 +69,9 @@ class mtaGTFS(object):
         self.enrouteTrains = None
         self.unscheduledTrains = None
         
-        self.updateFeed(buildTables)
+        self.updateFeed(buildTables,single_id)
         
-    def updateFeed(self, buildTables = True):
+    def updateFeed(self, buildTables = True, single_id = False):
         self.timePulled = datetime.now()
         self.response = urllib.urlopen(self.urls[self.subway_group])
         self.binText = self.response.read()
@@ -81,7 +81,7 @@ class mtaGTFS(object):
 
         if buildTables:
             self.buildTrainIds()
-            self.buildAllStops()
+            self.buildAllStops(single_id)
             self.buildAllEnroute()
     def jsonDump(self):
         self.json = json.dumps(protobuf_json.pb2json(self.feed), separators=(',',':'))
@@ -168,6 +168,10 @@ class mtaGTFS(object):
         
         #entity_num = int(self.trainIds.ix[select_row,'entity_id'])
         entity_num = self.trainIds.ix[('scheduled',full_id),'entity_id']
+        if(type(entity_num) is not np.int64):
+            print 'some weird double, choosing first one:', full_id
+            entity_num = int(entity_num[0])
+            
         stops = self.getEntity(entity_num).trip_update.stop_time_update
         
         # first/last stops to do not have departure/arrival times, respectfully
@@ -201,6 +205,9 @@ class mtaGTFS(object):
         """        
         # select_row = (self.trainIds.full_id == full_id) & (self.trainIds.type =='enroute')
         entity_num = self.trainIds.ix[('enroute',full_id),'entity_id']
+        if(type(entity_num) is not np.int64):
+            print 'some weird double, choosing first one:', full_id
+            entity_num = int(entity_num[0])
         vehicle = self.getEntity(entity_num).vehicle
         
         stop_id = vehicle.stop_id
@@ -227,7 +234,7 @@ class mtaGTFS(object):
         if(not train_ids.is_unique):
             #raise an error here
             print type + " trains' Ids are not unique" 
-        return train_ids.values
+        return train_ids.unique()
         
     def buildAllEnroute(self):
         # sched_trains_ids = self.trainIds.ix['enroute'].index
@@ -247,7 +254,7 @@ class mtaGTFS(object):
         # self.enrouteTrains  = out.merge(self.stationlkp, how ='left',
             # on = 'stop_id')        
         self.enrouteTrains = out.sort()
-    def buildAllStops(self):
+    def buildAllStops(self, single_id = False):
         # builds all scheduled stops 
         #select_row = (self.trainIds.type=='scheduled')
         #sched_train_ids  = np.unique(self.trainIds.ix[select_row,'full_id'])
@@ -264,8 +271,15 @@ class mtaGTFS(object):
             # self.fetchStationNames()
         # self.scheduledStops  = out.merge(self.stationlkp, how ='left',
             # on = 'stop_id')
-        out.set_index(['full_id','stop_id'], inplace = True)
-        self.scheduledStops = out.sortlevel(0)
+        if single_id:
+            out['full_stop_id'] = out['full_id'] + out['stop_id']
+            out.set_index('full_stop_id', inplace = True)
+            self.scheduledStops = out.sort_index()
+        else:
+            out.set_index(['full_id','stop_id'], inplace = True)
+            self.scheduledStops = out.sortlevel(0)
+        
+        
         
     def _fetchStationNames(self):
         # get station names. This should only happen once when we have the update script

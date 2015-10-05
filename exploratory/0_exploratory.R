@@ -12,6 +12,8 @@ require(lubridate)
   df
 }
 
+
+
 sched_stops <- read_csv('dumps/sept2_scheduled.csv',col_types = "cccccc") %>%
   safeDateConvert(c('arrival', 'departure', 'timeFeed'))
 sched_stops <- cbind(sched_stops, getTrainDetails(sched_stops$full_id)) %>% tbl_df

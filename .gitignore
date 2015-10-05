@@ -4,3 +4,5 @@ sensative_info.*
 *.pyc
 *.Rproj
 sept2_*
+.Rproj.user
+dbConstants*
