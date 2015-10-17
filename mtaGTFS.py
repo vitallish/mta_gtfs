@@ -10,19 +10,25 @@ __author__ = 'Lolhaven'
 
 # Station Service
 url_service = "http://web.mta.info/status/serviceStatus.txt"
-
-from google.transit import gtfs_realtime_pb2
-# pip install --upgrade gtfs-realtime-bindings
-import nyct_subway_pb2
+#base packages
 import urllib
 import time
+import re
+from datetime import datetime
+import json
+
+#pip installed
+from google.transit import gtfs_realtime_pb2
+# pip install --upgrade gtfs-realtime-bindings
+import sqlalchemy
 import pandas as pd
 import numpy as np
-import json
+
+#local files
 import protobuf_json
-from datetime import datetime
-import sqlalchemy
-import re
+import nyct_subway_pb2
+
+
 
 def try_date(str_date, str_format=["%D"], log=False):
     # function takes a list of possible date formats (str_format) and tries them

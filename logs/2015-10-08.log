@@ -1,0 +1,83 @@
+2015-10-08 07:55:44,450 - irt_test - INFO - Feed Updated
+2015-10-08 07:55:44,540 - irt_test - INFO - Train Ids Merged
+2015-10-08 07:55:44,953 - irt_test - INFO - Enroute Trains Update
+2015-10-08 07:55:45,309 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 07:55:49,775 - irt_test - INFO - Data Pushed to Database
+2015-10-08 07:56:14,726 - irt_test - INFO - Feed Updated
+2015-10-08 07:56:14,788 - irt_test - INFO - Train Ids Merged
+2015-10-08 07:56:15,032 - irt_test - INFO - Enroute Trains Update
+2015-10-08 07:56:16,457 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 07:56:23,842 - irt_test - INFO - Data Pushed to Database
+2015-10-08 07:56:47,200 - irt_test - INFO - Feed Updated
+2015-10-08 07:56:47,269 - irt_test - INFO - Train Ids Merged
+2015-10-08 07:56:47,444 - irt_test - INFO - Enroute Trains Update
+2015-10-08 07:56:48,486 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 07:56:53,109 - irt_test - INFO - Data Pushed to Database
+2015-10-08 07:57:14,460 - irt_test - INFO - Feed Updated
+2015-10-08 07:57:14,513 - irt_test - INFO - Train Ids Merged
+2015-10-08 07:57:14,986 - irt_test - INFO - Enroute Trains Update
+2015-10-08 07:57:16,006 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 07:57:28,786 - irt_test - INFO - Data Pushed to Database
+2015-10-08 07:57:44,237 - irt_test - INFO - Feed Updated
+2015-10-08 07:57:44,309 - irt_test - INFO - Train Ids Merged
+2015-10-08 07:57:44,677 - irt_test - INFO - Enroute Trains Update
+2015-10-08 07:57:45,628 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 07:57:52,257 - irt_test - INFO - Data Pushed to Database
+2015-10-08 07:58:14,502 - irt_test - INFO - Feed Updated
+2015-10-08 07:58:14,578 - irt_test - INFO - Train Ids Merged
+2015-10-08 07:58:14,785 - irt_test - INFO - Enroute Trains Update
+2015-10-08 07:58:15,641 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 07:58:33,532 - irt_test - INFO - Data Pushed to Database
+2015-10-08 23:48:01,142 - irt_test - INFO - Feed Updated
+2015-10-08 23:48:01,177 - irt_test - INFO - Train Ids Merged
+2015-10-08 23:48:01,344 - irt_test - INFO - Enroute Trains Update
+2015-10-08 23:48:01,602 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 23:48:02,559 - irt_test - INFO - Data Pushed to Database
+2015-10-08 23:48:30,947 - irt_test - INFO - Feed Updated
+2015-10-08 23:48:30,990 - irt_test - INFO - Train Ids Merged
+2015-10-08 23:48:31,059 - irt_test - INFO - Enroute Trains Update
+2015-10-08 23:48:31,451 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 23:48:33,246 - irt_test - INFO - Data Pushed to Database
+2015-10-08 23:49:01,005 - irt_test - INFO - Feed Updated
+2015-10-08 23:49:01,055 - irt_test - INFO - Train Ids Merged
+2015-10-08 23:49:01,124 - irt_test - INFO - Enroute Trains Update
+2015-10-08 23:49:01,483 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 23:49:02,263 - irt_test - INFO - Data Pushed to Database
+2015-10-08 23:49:31,013 - irt_test - INFO - Feed Updated
+2015-10-08 23:49:31,063 - irt_test - INFO - Train Ids Merged
+2015-10-08 23:49:31,128 - irt_test - INFO - Enroute Trains Update
+2015-10-08 23:49:31,596 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 23:49:33,075 - irt_test - INFO - Data Pushed to Database
+2015-10-08 23:50:01,017 - irt_test - INFO - Feed Updated
+2015-10-08 23:50:01,069 - irt_test - INFO - Train Ids Merged
+2015-10-08 23:50:01,130 - irt_test - INFO - Enroute Trains Update
+2015-10-08 23:50:01,476 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 23:50:03,145 - irt_test - INFO - Data Pushed to Database
+2015-10-08 23:50:30,927 - irt_test - INFO - Feed Updated
+2015-10-08 23:50:30,976 - irt_test - INFO - Train Ids Merged
+2015-10-08 23:50:31,033 - irt_test - INFO - Enroute Trains Update
+2015-10-08 23:50:31,362 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 23:50:31,611 - irt_test - INFO - Data Pushed to Database
+2015-10-08 23:51:01,025 - irt_test - INFO - Feed Updated
+2015-10-08 23:51:01,075 - irt_test - INFO - Train Ids Merged
+2015-10-08 23:51:01,158 - irt_test - INFO - Enroute Trains Update
+2015-10-08 23:51:01,513 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 23:51:02,298 - irt_test - INFO - Data Pushed to Database
+2015-10-08 23:51:30,915 - irt_test - ERROR - Truncated message.
+2015-10-08 23:52:01,030 - irt_test - INFO - Feed Updated
+2015-10-08 23:52:01,081 - irt_test - INFO - Train Ids Merged
+2015-10-08 23:52:01,167 - irt_test - INFO - Enroute Trains Update
+2015-10-08 23:52:01,569 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 23:52:04,131 - irt_test - INFO - Data Pushed to Database
+2015-10-08 23:52:30,714 - irt_test - ERROR - Truncated message.
+2015-10-08 23:53:00,651 - irt_test - ERROR - Truncated message.
+2015-10-08 23:53:30,930 - irt_test - INFO - Feed Updated
+2015-10-08 23:53:30,980 - irt_test - INFO - Train Ids Merged
+2015-10-08 23:53:31,066 - irt_test - INFO - Enroute Trains Update
+2015-10-08 23:53:31,446 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 23:53:33,232 - irt_test - INFO - Data Pushed to Database
+2015-10-08 23:54:01,098 - irt_test - INFO - Feed Updated
+2015-10-08 23:54:01,154 - irt_test - INFO - Train Ids Merged
+2015-10-08 23:54:01,253 - irt_test - INFO - Enroute Trains Update
+2015-10-08 23:54:01,762 - irt_test - INFO - Scheduled Stops Merged
+2015-10-08 23:54:03,859 - irt_test - INFO - Data Pushed to Database

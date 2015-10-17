@@ -37,7 +37,15 @@ def createTrainIdObject(tup):
     return TrainID(full_id = tup[0], route_plan = tup[5] , direction = tup[3], start_date = tup[4] , route_id = tup[2])
     
 def createSchedStopObject(tup,tf):
-        return Sched_stops(full_stop_id = tup[0], full_id = tup[1],  stop_id = tup[2], arrival = tup[3], departure = tup[4], timeFeed = tf)
+    arr = tup[3]
+    dep = tup[4]
+    #attempts to catch any NaT's that don't mesh well with SQLalchemy
+    if type(arr) != pd.tslib.Timestamp:
+        arr = None
+    if type(dep) != pd.tslib.Timestamp:
+        dep = None
+        
+    return Sched_stops(full_stop_id = tup[0], full_id = tup[1],  stop_id = tup[2], arrival = arr, departure = dep, timeFeed = tf)
 
 def updateTrainIds(mta_obj):
     unique_trains = mta_obj.trainIds.ix['scheduled']
@@ -87,6 +95,7 @@ def updateEnrouteTrains(mta_obj):
         
     
 def push_to_db(mta_obj):
+    #think about moving the following line to loop_update
     mta_obj.updateFeed(single_id = True)
     logger.info('Feed Updated')
     updateTrainIds(mta_obj)
@@ -102,7 +111,7 @@ import logging
 logger = logging.getLogger('irt_test')
 logger.setLevel(logging.DEBUG)
 # create file handler which logs even debug messages
-fh = logging.FileHandler('logs/sept20.log')
+fh = logging.FileHandler('logs/'+datetime.date.today().isoformat() +'.log')
 fh.setLevel(logging.DEBUG)
 # create console handler with a higher log level
 ch = logging.StreamHandler()
@@ -126,6 +135,9 @@ def loop_update():
         push_to_db(irt)
     except Exception, e:
         logger.error(str(e)) 
+        # added to revert any database push errors that may occur
+        session.rollback()
+        
     threading.Timer( next_call - time.time(), loop_update).start()
 
 loop_update()
