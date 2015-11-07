@@ -35,6 +35,12 @@ full_df <- sched_stops_clean %>%
   left_join(trainID_clean, by = 'full_id') %>% 
   filter(enroute_conf != 0)
 
+# filter_options needs to be loaded into a db and updated periodically
+filter_options <- full_df %>% 
+  select(route_id, direction, stop_id, stop_name) %>%
+  distinct(route_id, direction, stop_id, stop_name)
+  
+
 full_df_all<- sched_stops_clean %>% 
   left_join(stops, by ="stop_id") %>% 
   left_join(trainID_clean, by = 'full_id')
