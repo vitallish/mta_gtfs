@@ -15,17 +15,14 @@ import urllib
 import time
 import re
 from datetime import datetime
-import json
 
 #pip installed
 from google.transit import gtfs_realtime_pb2
 # pip install --upgrade gtfs-realtime-bindings
-import sqlalchemy
 import pandas as pd
 import numpy as np
 
 #local files
-import protobuf_json
 import nyct_subway_pb2
 
 
@@ -48,6 +45,7 @@ def try_date(str_date, str_format=["%D"], log=False):
     return out
 
 def connect_to_mysql(si, echo = False):
+    import sqlalchemy
     engine_text ='mysql+mysqldb://' + si.db_user + ':'+si.db_pass+'@' + si.db_host + ':'+si.db_port+'/'+si.db_table
     return sqlalchemy.create_engine(engine_text, echo = echo)
 
@@ -90,6 +88,9 @@ class mtaGTFS(object):
             self.buildAllStops(single_id)
             self.buildAllEnroute()
     def jsonDump(self):
+        import json
+        #local files
+        import protobuf_json
         self.json = json.dumps(protobuf_json.pb2json(self.feed), separators=(',',':'))
 
     def getEntity(self,id):
