@@ -1,12 +1,4 @@
 __author__ = 'Lolhaven'
-# os.chdir('C:/Users/Vitaly/Dropbox/Projects/20150723_MTA/')
-
-# Next Step: Get MySQL image on computer
-# Make tables which just append allStops and allEnroute into them. 
-# Let it run for a day, and then revisit
-
-#import transitfeed
-#
 
 # Station Service
 url_service = "http://web.mta.info/status/serviceStatus.txt"
