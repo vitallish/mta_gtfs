@@ -40,7 +40,7 @@ def connect_to_mysql(si, echo = False):
     import sqlalchemy
     engine_text ='mysql+mysqldb://' + si.db_user + ':'+si.db_pass+'@' + si.db_host + ':'+si.db_port+'/'+si.db_table
     return sqlalchemy.create_engine(engine_text, echo = echo)
-
+ 
 class mtaGTFS(object):
     def __init__(self, subway_group = "irt", api_key=None, buildTables = True, single_id = False):
         """ Inits mtaGTFS with the following arguments        
@@ -210,6 +210,9 @@ class mtaGTFS(object):
         vehicle = self.getEntity(entity_num).vehicle
         
         stop_id = vehicle.stop_id
+        if(stop_id==""):
+            stop_id = self.getStops(full_id).head(1).stop_id[0]
+
         current_status = vehicle.current_status
         
         if current_status == 0:

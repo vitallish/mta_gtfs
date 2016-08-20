@@ -9,8 +9,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import table, column, select
 from sqlalchemy import text
 
+import sys
 import os
 import gzip
+import datetime
 
 engine = mtaGTFS.connect_to_mysql(si, echo =False)
 
@@ -57,6 +59,9 @@ def pullWeekTrains(date_ser, engine, overwrite = False):
 # sunday starts a new week
 #this will run on sunday at 1 am
 # and leave two weeks (counting today)
+print datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
+os.chdir(os.path.dirname(sys.argv[0]))
+
 current_week_text  = text(
 "SELECT  year(start_date) as year, week(start_date) as week, min(start_date) as early_date, max(start_date) as end_date from trainID WHERE week(start_date) is not null group by year(start_date), week(start_date) order by year(start_date) desc, week(start_date) desc;")
 
@@ -66,4 +71,5 @@ weeks_to_store = all_weeks_df[2:]
 
 
 for row in weeks_to_store.iterrows():
+    print format(row[1].year) + '_' + format(row[1].week, '02')
     pullWeekTrains(row[1], engine, overwrite=False)
