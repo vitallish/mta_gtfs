@@ -17,3 +17,4 @@ See `mtaGTFS.py` for details. Import mtaGTFS.py and create a a new object with:
 `new_object = mtaGTFS(subway_group = "irt", api_key='*************')`
 subway_group can be either 'irt', 'l', or 'sir' for each train type. Once the object is loaded the enrouteTrains, scheduledStops, and trainIds can be accessed as properties of new_object. The feeds can be updated with the updateFeed method.
 
+Thanks!
