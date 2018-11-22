@@ -40,10 +40,10 @@ def connect_to_mysql(si, echo = False):
     import sqlalchemy
     engine_text ='mysql+mysqldb://' + si.db_user + ':'+si.db_pass+'@' + si.db_host + ':'+si.db_port+'/'+si.db_table
     return sqlalchemy.create_engine(engine_text, echo = echo)
- 
+
 class mtaGTFS(object):
     def __init__(self, subway_group = "irt", api_key=None, buildTables = True, single_id = False):
-        """ Inits mtaGTFS with the following arguments        
+        """ Inits mtaGTFS with the following arguments
         Args:
             subway_group (str): which subway type to read in. {"irt", "l", "sir"}
             default "irt"
@@ -51,22 +51,28 @@ class mtaGTFS(object):
         Attributes:
             subway_group: defined in init
             api_key: defined in init
-            feed: 
+            feed:
         """
         self.subway_group = subway_group
-        self.feed = gtfs_realtime_pb2.FeedMessage() 
+        self.feed = gtfs_realtime_pb2.FeedMessage()
         self.urls = {'irt' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=1",
                         'l':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=2",
-                        'sir' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=11"}
-        
+                        'sir' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=11",
+                        'nqrw': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=16",
+                        'ace': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=26",
+                        'bdfm':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=21",
+                        'g': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=31",
+                        'jz': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=36",
+                        '7':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=51"}
+
         self.timePulled = None
         self.trainIds = None
         self.stationlkp = None
         self.enrouteTrains = None
         self.unscheduledTrains = None
-        
+
         self.updateFeed(buildTables,single_id)
-        
+
     def updateFeed(self, buildTables = True, single_id = False):
         self.timePulled = datetime.now()
         self.response = urllib.urlopen(self.urls[self.subway_group])
@@ -112,7 +118,7 @@ class mtaGTFS(object):
                     print entity
                 continue
             assigned = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].is_assigned
-                 
+
             trip_id = ent.trip.trip_id
             start_date = ent.trip.start_date
             full_id = start_date + "_" + trip_id
@@ -124,7 +130,7 @@ class mtaGTFS(object):
             # full_id = self._makeFullId(ent)
             #entity_id = int(entity.id)
             route_id= ent.trip.route_id
-            
+
             #Direction 1 = North, Direction 3 = South
             direction = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].direction
             if direction==1:
@@ -135,17 +141,17 @@ class mtaGTFS(object):
                 direction = "U"
             #SIR vs IRT lines have different date formates so we need to try both.
             start_date = try_date(start_date, ["%Y-%m-%d %H:%M:%S","%Y%m%d"]).date()
-            
+
             raw_data = [full_id,entity_id,type,route_id,direction,start_date,route_plan]
-            if assigned:                        
+            if assigned:
                 raw_list.append(raw_data)
             else:
                 raw_unscheduled_list.append(raw_data)
         pd_columns = ['full_id', 'entity_id', 'type','route_id','direction','start_date','route_plan']
         pd_index = ['type','full_id']
-        self.trainIds = pd.DataFrame(columns = pd_columns, 
+        self.trainIds = pd.DataFrame(columns = pd_columns,
             data = raw_list).set_index(pd_index)
-        self.unscheduledTrains = pd.DataFrame(columns = pd_columns, 
+        self.unscheduledTrains = pd.DataFrame(columns = pd_columns,
             data = raw_unscheduled_list).set_index(pd_index)
     def _getIndividualTrain(self, full_id, log = False):
         #finds all the entities with particular full_id, returns them as a list.
@@ -164,15 +170,15 @@ class mtaGTFS(object):
         #select_row = (self.trainIds.full_id == full_id) & (self.trainIds.type=='scheduled')
         #if(select_row.sum() !=1):
             #print(full_id +" has multiple entries in trainIds.")
-        
+
         #entity_num = int(self.trainIds.ix[select_row,'entity_id'])
         entity_num = self.trainIds.ix[('scheduled',full_id),'entity_id']
         if(type(entity_num) is not np.int64):
             print 'some weird double, choosing first one:', full_id
             entity_num = int(entity_num[0])
-            
+
         stops = self.getEntity(entity_num).trip_update.stop_time_update
-        
+
         # first/last stops to do not have departure/arrival times, respectfully
         for stop in stops:
             if stop.HasField('arrival'):
@@ -185,36 +191,36 @@ class mtaGTFS(object):
                 departure=None
             stop_id = stop.stop_id
             raw_list.append([full_id,stop_id,arrival,departure])
-        out = pd.DataFrame(columns=['full_id','stop_id','arrival','departure'], data = raw_list)        
-        #out.set_index(['full_id','stop_id'],inplace =True)        
+        out = pd.DataFrame(columns=['full_id','stop_id','arrival','departure'], data = raw_list)
+        #out.set_index(['full_id','stop_id'],inplace =True)
         return out
-        
+
     def getEnroute(self, full_id):
         """ Get's all the enroute information for an enroute train
-        
+
         Args:
             full_id (str): an id for a specific train
-        
+
         Returns:
-            a dictionary with keys = full_id, stop_id, current_status, 
-                last_ping, current_stop_sequence. 
-        
+            a dictionary with keys = full_id, stop_id, current_status,
+                last_ping, current_stop_sequence.
+
         Raises:
-            N/A        
-        """        
+            N/A
+        """
         # select_row = (self.trainIds.full_id == full_id) & (self.trainIds.type =='enroute')
         entity_num = self.trainIds.ix[('enroute',full_id),'entity_id']
         if(type(entity_num) is not np.int64):
             print 'some weird double, choosing first one:', full_id
             entity_num = int(entity_num[0])
         vehicle = self.getEntity(entity_num).vehicle
-        
+
         stop_id = vehicle.stop_id
         if(stop_id==""):
             stop_id = self.getStops(full_id).head(1).stop_id[0]
 
         current_status = vehicle.current_status
-        
+
         if current_status == 0:
             current_status = "INCOMING_AT"
         elif current_status == 1:
@@ -223,11 +229,11 @@ class mtaGTFS(object):
             current_status = "IN_TRANSIT_TO"
         else:
             current_status = "unknown"
-            
+
         last_ping = datetime.fromtimestamp(vehicle.timestamp)
         current_stop_sequence = vehicle.current_stop_sequence
-        
-        out = {'full_id': full_id, 'stop_id': stop_id, 
+
+        out = {'full_id': full_id, 'stop_id': stop_id,
                    'current_status':current_status, 'last_ping':last_ping,
                    'current_stop_sequence':current_stop_sequence}
         return out
@@ -235,38 +241,38 @@ class mtaGTFS(object):
         train_ids = self.trainIds.ix[type].index
         if(not train_ids.is_unique):
             #raise an error here
-            print type + " trains' Ids are not unique" 
+            print type + " trains' Ids are not unique"
         return train_ids.unique()
-        
+
     def buildAllEnroute(self):
         # sched_trains_ids = self.trainIds.ix['enroute'].index
         # #sched_trains_ids = sched_trains_ids.order()
         # if(not sched_trains_ids.is_unique):
             # #raise an error here
-            # print "Scheduled trains' Ids are not unique" 
-    
+            # print "Scheduled trains' Ids are not unique"
+
         # select_row = (self.trainIds.type=='enroute')
         enroute_train_ids = self.getUniqueTrains(type ='enroute')
-        
+
         #enroute_train_ids = np.unique(self.trainIds.ix[select_row,'full_id'])
         dict_list =[self.getEnroute(fullid_train) for fullid_train in enroute_train_ids]
         out = pd.DataFrame(data = dict_list).set_index('full_id')
         # if(self.stationlkp is None):
             # self.fetchStationNames()
         # self.enrouteTrains  = out.merge(self.stationlkp, how ='left',
-            # on = 'stop_id')        
-        self.enrouteTrains = out.sort()
+            # on = 'stop_id')
+        self.enrouteTrains = out.sort_values('full_id')
     def buildAllStops(self, single_id = False):
-        # builds all scheduled stops 
+        # builds all scheduled stops
         #select_row = (self.trainIds.type=='scheduled')
         #sched_train_ids  = np.unique(self.trainIds.ix[select_row,'full_id'])
         # sched_trains_ids = self.trainIds.ix['scheduled'].index
         # #sched_trains_ids = sched_trains_ids.order()
         # if(not sched_trains_ids.is_unique):
             # #raise an error here
-            # print "Scheduled trains' Ids are not unique" 
+            # print "Scheduled trains' Ids are not unique"
         unique_ids = self.getUniqueTrains(type ='scheduled')
-        
+
         df_list = [self.getStops(fullid_train) for fullid_train in unique_ids]
         out =pd.concat(df_list, ignore_index=True)
         # if(self.stationlkp is None):
@@ -280,14 +286,14 @@ class mtaGTFS(object):
         else:
             out.set_index(['full_id','stop_id'], inplace = True)
             self.scheduledStops = out.sortlevel(0)
-        
-        
-        
+
+
+
     def _fetchStationNames(self):
         # get station names. This should only happen once when we have the update script
         import sqlalchemy
         import os
-        
+
         import sensative_info as si
         engine_text ='mysql+mysqldb://'+si.db_user+':'+si.db_pass+'@' + si.db_host +':'+si.db_port+'/'+si.db_table
 
@@ -295,10 +301,10 @@ class mtaGTFS(object):
         if os.path.isfile('stops.txt'):
             self.stationlkp= pd.read_csv('stops.txt')
             self.stationlkp = self.stationlkp[['stop_id','stop_name','stop_lat','stop_lon']]
-        else:     
+        else:
             engine = sqlalchemy.create_engine('engine_text')
-            self.stationlkp = pd.read_sql_table('stops',engine, columns = ['stop_id','stop_name','stop_lat','stop_lon'])    
-    
+            self.stationlkp = pd.read_sql_table('stops',engine, columns = ['stop_id','stop_name','stop_lat','stop_lon'])
+
     def _filterTrains(self, route_id = None, direction = None, start_date=datetime.now().date(), type_t = 'scheduled'):
         # returns full_ids for trains that fulfill specfic criteria
         if  route_id is not None:
@@ -311,19 +317,19 @@ class mtaGTFS(object):
                 north_re = re.compile("[nN](orth)?")
                 if(len(north_re.findall(direction))>0):
                     direction = "N"
-                else: 
+                else:
                     direction = "S"
-                
+
             dir_sel = (self.trainIds.direction==direction)
         else:
             dir_sel = True
-            
+
         date_sel = self.trainIds.start_date >= start_date
         type_sel = (self.trainIds.type == type_t)
-        
+
         return self.trainIds.full_id[(route_sel * dir_sel *date_sel * type_sel)==1]
-        
-        
+
+
     # def x_makeFullId(self, ent):
     # #TODO  something doesn't work here. figure this shit out later.
         # if(ent.HasField('trip_update')):
