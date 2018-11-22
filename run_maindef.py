@@ -151,7 +151,7 @@ def loop_update():
         push_to_db(irt)
         push_to_db(l)
         push_to_db(sir)
-        push_to_db(nqrw)
+        # push_to_db(nqrw)
 
     except Exception, e:
         logger.error(str(e))
