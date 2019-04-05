@@ -1,5 +1,5 @@
 import sensative_info as si
-import mtaGTFS
+import python3_mtagtfs as mtaGTFS
 import sqlalchemy
 import pandas as pd
 import numpy as np
@@ -8,8 +8,6 @@ from sqlalchemy.orm import sessionmaker
 import datetime
 import threading
 import time
-
-
 
 engine = mtaGTFS.connect_to_mysql(si, echo =False)
 metadata = sqlalchemy.MetaData()
@@ -40,15 +38,15 @@ def createSchedStopObject(tup,tf):
     arr = tup[3]
     dep = tup[4]
     #attempts to catch any NaT's that don't mesh well with SQLalchemy
-    if type(arr) != pd.tslib.Timestamp:
+    if type(arr) != pd.Timestamp:
         arr = None
-    if type(dep) != pd.tslib.Timestamp:
+    if type(dep) != pd.Timestamp:
         dep = None
 
     return Sched_stops(full_stop_id = tup[0], full_id = tup[1],  stop_id = tup[2], arrival = arr, departure = dep, timeFeed = tf)
 
 def updateTrainIds(mta_obj):
-    unique_trains = mta_obj.trainIds.ix['scheduled']
+    unique_trains = mta_obj.trainIds.loc['scheduled']
     ids = unique_trains.index.values
 
     trains_in_db = session.query(TrainID).filter(TrainID.full_id.in_(ids))
@@ -57,7 +55,7 @@ def updateTrainIds(mta_obj):
     new_trains_sel = unique_trains.index.isin(ids_in_db)
     new_trains_sel = np.logical_not(new_trains_sel)
     trainsobj_to_add = [createTrainIdObject(tup) for tup in
-        unique_trains.ix[new_trains_sel].itertuples()]
+        unique_trains.loc[new_trains_sel].itertuples()]
     session.add_all(trainsobj_to_add)
 
 def updateSchedStops(mta_obj):
@@ -66,7 +64,7 @@ def updateSchedStops(mta_obj):
     stops_in_db = session.query(Sched_stops).filter(Sched_stops.full_stop_id.in_(sched_ids))
 
     for row in stops_in_db:
-        db_update = mta_obj.scheduledStops.ix[row.full_stop_id]
+        db_update = mta_obj.scheduledStops.loc[row.full_stop_id]
         row.arrival = db_update.arrival
         row.departure = db_update.departure
         updated_ids.append(row.full_stop_id)
@@ -74,7 +72,7 @@ def updateSchedStops(mta_obj):
     new_trains_sel = mta_obj.scheduledStops.index.isin(updated_ids)
     new_trains_sel = np.logical_not(new_trains_sel)
 
-    stops_to_add = [createSchedStopObject(tup, mta_obj.timeFeed) for tup in mta_obj.scheduledStops.ix[new_trains_sel].itertuples()]
+    stops_to_add = [createSchedStopObject(tup, mta_obj.timeFeed) for tup in mta_obj.scheduledStops.loc[new_trains_sel].itertuples()]
     session.add_all(stops_to_add)
 
 def updateEnrouteTrains(mta_obj):
@@ -90,7 +88,7 @@ def updateEnrouteTrains(mta_obj):
         filter(Sched_stops.enroute_conf== 0)
     for row in stops_in_db:
         #db_update = enroute_trains.ix[row.full_stop_id]
-        row.enroute_conf = enroute_trains.ix[row.full_stop_id,'current_stop_sequence']
+        row.enroute_conf = enroute_trains.loc[row.full_stop_id,'current_stop_sequence']
 
 
 def push_to_db(mta_obj, to_log = True):
@@ -141,6 +139,7 @@ sir = mtaGTFS.mtaGTFS(subway_group = 'sir', api_key= si.api_key, single_id=True)
 l = mtaGTFS.mtaGTFS(subway_group = 'l', api_key= si.api_key, single_id=True)
 nqrw = mtaGTFS.mtaGTFS(subway_group = 'nqrw', api_key= si.api_key, single_id=True)
 
+nqrw.stationlkp
 next_call = time.time()
 def loop_update():
     global next_call
@@ -153,7 +152,7 @@ def loop_update():
         push_to_db(sir)
         # push_to_db(nqrw)
 
-    except Exception, e:
+    except Exception as e:
         logger.error(str(e))
         # added to revert any database push errors that may occur
         session.rollback()
