@@ -1,23 +1,118 @@
+ 
 require(RMySQL)
 require(dplyr)
 require(lubridate)
 require(ggplot2)
+library(leaflet)
+library(htmltools)
 
-load("dbConstants.RData")
+
+
 drv<-dbDriver("MySQL")
 con<-dbConnect(drv,
-               username = USERNAME,
-               password = PASSWORD,
-               host= HOST,
-               port = PORT,
-               dbname = DBNAME)
+               username = db_user,
+               password = db_pass,
+               host= db_host,
+               port = db_port,
+               dbname = db_table)
 dbListTables(con)
 
-sched_stops <- tbl_df(dbReadTable(con, "sched_stops"))
-trainID <- tbl_df(dbReadTable(con, "trainID"))
-enroute_trains <- tbl_df(dbReadTable(con, "enroute_trains"))
-stops <- tbl_df(dbReadTable(con, "stops"))
-dbDisconnect(con)
+sched_stops <- tbl(con, "sched_stops")
+trainID <- tbl(con, "trainID")
+enroute_trains <- tbl(con, "enroute_trains")
+stops <- tbl(con, "stops")
+
+
+## Live information ----
+for(i in 1:4){
+cur_time <- Sys.time()
+live_query <- sched_stops %>% 
+  left_join(trainID, by = "full_id") %>% 
+  left_join(stops, by = "stop_id") %>% 
+  inner_join(enroute_trains, by = "full_id", suffix = c("", "_enroute")) %>% 
+  # left_join(enroute_trains, by = c("full_id", "stop_id")) %>% 
+  filter(route_id == "1", direction == "S") %>% 
+  select(-full_stop_id)
+
+
+live_df <- live_query %>%
+  collect() 
+
+live_clean <- live_df %>% 
+  mutate_at(vars(arrival, departure, timeFeed, last_ping), ymd_hms, tz =  Sys.timezone()) %>% 
+  mutate(cur_time = Sys.time())
+
+current_train_pos <- live_clean %>% 
+  group_by(full_id) %>% 
+  mutate(time_pinged = cur_time -last_ping) %>% 
+  mutate(time_since_depart = as.numeric(cur_time - lag(departure, order_by = stop_sequence), unit = "mins")) %>% 
+  mutate(arriving_in = as.numeric(arrival - cur_time, unit = "mins")) %>% 
+  mutate(perc_there = case_when(current_status == 'STOPPED_AT' ~ 1,
+                                TRUE ~ time_since_depart/(time_since_depart + arriving_in))) %>% 
+  mutate(guess_lat = lag(stop_lat, order_by = stop_sequence) + (stop_lat - lag(stop_lat, order_by = stop_sequence))*(perc_there)) %>% 
+  mutate(guess_lon = lag(stop_lon, order_by = stop_sequence) + (stop_lon - lag(stop_lon, order_by = stop_sequence))*(perc_there)) %>% 
+  
+  filter(stop_id_enroute == stop_id) %>% 
+  mutate(PINGED = paste0("PINGED: ", round(as.numeric(cur_time-last_ping, unit = "secs")))) %>% 
+  mutate(ARRIVAL = paste0("Arrival: ", round(arriving_in, 1), " min")) %>% 
+  mutate(LEFT = paste0("Left: ", round(time_since_depart,1), " min")) %>% 
+  mutate(station_color = case_when(current_status == "STOPPED_AT" ~ "green",
+                                   current_status == "INCOMING_AT" ~ "yellow",
+                                   TRUE ~ "blue"))
+
+all_stations <- live_clean %>% 
+  distinct(stop_name, stop_id, stop_lat, stop_lon)
+
+
+
+
+output <- leaflet() %>% 
+  addCircleMarkers(~stop_lon, ~stop_lat, data = all_stations, radius = 2, color = "black", popup = ~htmlEscape(stop_name)) %>%  
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addCircleMarkers(~guess_lon, ~guess_lat, data = current_train_pos, color = ~station_color, popup = ~(
+    paste(PINGED, 
+          paste0(current_status, ": ", stop_name),
+          ARRIVAL,
+          LEFT,
+          
+          sep = "<br>")
+  ))
+
+print(output)
+Sys.sleep(15)
+
+}
+
+## Historic Information ----
+test_query <- sched_stops %>% 
+  left_join(trainID, by = "full_id") %>% 
+  left_join(stops, by = "stop_id") %>% 
+  filter(route_id == "1", direction == "S", enroute_conf > 0) %>% 
+  select(-full_stop_id)
+  
+
+test_query_df <- test_query %>% 
+    collect()
+
+
+
+d <- test_query_df %>% 
+  mutate_at(vars(arrival, departure, timeFeed), ymd_hms) %>% 
+  group_by(full_id) %>% 
+  arrange(full_id, desc(arrival)) %>% 
+  mutate(time_to_arrive = arrival-lag(departure, order_by = (arrival)))
+  
+
+
+d %>% 
+  filter(stop_id %in% c('114S', '127S')) %>% 
+  mutate(time_to_arrive = arrival-lag(departure, order_by = (arrival))) %>% 
+  filter(!is.na(time_to_arrive)) %>% 
+  filter(year(arrival) >=2019) %>% 
+  filter(time_to_arrive < 5e3) %>% 
+  ggplot(aes(x = hour(arrival), y = as.numeric(time_to_arrive)/60)) +
+  geom_boxplot(aes(group = hour(arrival)))
+
 
 
 sched_stops_clean <- sched_stops %>% 

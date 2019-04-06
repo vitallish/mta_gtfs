@@ -33,7 +33,7 @@ def connect_to_mysql(si, echo = False):
 
 
 class mtaGTFS(object):
-    def __init__(self, subway_group = "irt", api_key=None, buildTables = True, single_id = False):
+    def __init__(self, subway_group = "irt", api_key=None, buildTables = True, single_id = False, past = None):
         """ Inits mtaGTFS with the following arguments
         Args:
             subway_group (str): which subway type to read in. {"irt", "l", "sir"}
@@ -46,15 +46,20 @@ class mtaGTFS(object):
         """
         self.subway_group = subway_group
         self.feed = gtfs_realtime_pb2.FeedMessage()
-        self.urls = {'irt' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=1",
-                        'l':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=2",
-                        'sir' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=11",
-                        'nqrw': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=16",
-                        'ace': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=26",
-                        'bdfm':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=21",
-                        'g': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=31",
-                        'jz': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=36",
-                        '7':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=51"}
+        if(past is None):
+            self.urls = {
+                'irt' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=1",
+                'l':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=2",
+                'sir' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=11",
+                'nqrw': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=16",
+                'ace': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=26",
+                'bdfm':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=21",
+                'g': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=31",
+                'jz': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=36",
+                '7':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=51"
+        }
+        else:
+            self.urls = {'irt' : 'https://datamine-history.s3.amazonaws.com/gtfs-' + past}
 
         self.timePulled = None
         self.trainIds = None
