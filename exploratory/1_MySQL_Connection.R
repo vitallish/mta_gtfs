@@ -1,20 +1,15 @@
- 
 require(RMySQL)
 require(dplyr)
 require(lubridate)
 require(ggplot2)
 library(leaflet)
 library(htmltools)
+library(tidyr)
 
 
 
-drv<-dbDriver("MySQL")
-con<-dbConnect(drv,
-               username = db_user,
-               password = db_pass,
-               host= db_host,
-               port = db_port,
-               dbname = db_table)
+
+con<-DBI::dbConnect(odbc::odbc(), "mta_gtfs")
 dbListTables(con)
 
 sched_stops <- tbl(con, "sched_stops")
@@ -24,7 +19,7 @@ stops <- tbl(con, "stops")
 
 
 ## Live information ----
-for(i in 1:4){
+for(i in 1:1){
 cur_time <- Sys.time()
 live_query <- sched_stops %>% 
   left_join(trainID, by = "full_id") %>% 
@@ -88,20 +83,152 @@ test_query <- sched_stops %>%
   left_join(trainID, by = "full_id") %>% 
   left_join(stops, by = "stop_id") %>% 
   filter(route_id == "1", direction == "S", enroute_conf > 0) %>% 
-  select(-full_stop_id)
+  select(-full_stop_id) %>% 
+  filter(arrival >="2019-01-01")
   
 
 test_query_df <- test_query %>% 
     collect()
 
-
+library(forcats)
 
 d <- test_query_df %>% 
   mutate_at(vars(arrival, departure, timeFeed), ymd_hms) %>% 
   group_by(full_id) %>% 
   arrange(full_id, desc(arrival)) %>% 
-  mutate(time_to_arrive = arrival-lag(departure, order_by = (arrival)))
+  mutate(time_to_arrive = arrival-lag(departure, order_by = (arrival))) %>% 
+  mutate(stop_start = lag(stop_id, order_by = arrival)) %>% 
+  mutate(time_to_arrive = as.numeric(time_to_arrive, unit = "secs")) %>% 
+  mutate(path = paste("S", stop_start, stop_id, sep = "_")) %>% 
+  ungroup() %>% 
+  filter(!is.na(time_to_arrive))
+
+d_paths_valid <- d %>% 
+  count(path)
+
+d_paths_valid$cluster <- kmeans(d_paths_valid$n, centers = c(1, 1e3))$cluster
+
+d <- d %>% 
+  semi_join(d_paths_valid %>% filter(cluster ==2), by = "path")
+
+d <- d %>% 
+  mutate(path_order = fct_reorder(path, enroute_conf))
+# Brute force it bro ----
+full_order <- levels(d$path_order)
+
+only_clean <- d %>% select(full_id, path_order, time_to_arrive) %>% 
+  spread(path_order, time_to_arrive) %>% 
+  filter(complete.cases(.))
+
+# create forumals
+all_mods <- list()
+for(i in 2:length(full_order)){
+  output_var <- full_order[i]
+  predictors <- paste(full_order[1:(i-1)], collapse = " + ")
+  full_form <- as.formula(paste(output_var, predictors, sep = "~"))
   
+  full_mod <- glm(full_form, data = only_clean)
+  all_mods[[output_var]] <- step(full_mod, trace = 0)
+  
+}
+
+
+library(broom)
+library(purrr)
+map_df(all_mods, tidy, .id = "output") %>% 
+  filter(term != '(Intercept)') %>% 
+  count(term) %>% 
+  View()
+
+
+
+
+
+# Only control for day and time
+
+
+time_forcast <- d %>% select(path_order, arrival, time_to_arrive)
+
+library(chron)
+library(splines)
+time_forcast <- time_forcast %>% 
+  mutate(WEEKEND = as.numeric(is.weekend(arrival))) %>% 
+  mutate(TIME_DAY = hour(arrival) + minute(arrival)/60) %>% 
+  mutate(WEEKDAY = weekdays(arrival)) %>% 
+  filter(time_to_arrive>0)
+
+full_time_mod <- glm(time_to_arrive ~ path_order + WEEKEND*ns(TIME_DAY, df = 10), data = time_forcast, family = "poisson")
+# full_time_mod <- glm(time_to_arrive ~ path_order + WEEKEND*((sin(TIME_DAY/24*2*pi)^2+ cos(TIME_DAY/24*2*pi)^2), degree = 2 ), 
+#                      data = time_forcast, family = "gaussian")
+
+expand.grid(
+  path_order = full_order[],
+  WEEKEND = c(1,0),
+  TIME_DAY = seq(0,24, length.out = 100)
+) %>% 
+  mutate(modeled_time = predict(full_time_mod, ., type = "response")) %>% 
+  mutate(WEEKEND = as.factor(WEEKEND)) %>% 
+  ggplot(aes(x = TIME_DAY, y = modeled_time, color = WEEKEND)) +
+  geom_line()
+
+
+for(i_path_order in full_order){
+p <- time_forcast %>% 
+  mutate(preds = fitted.values(full_time_mod)) %>% 
+  filter(path_order == i_path_order) %>% 
+  ggplot(aes(x = TIME_DAY, y = preds - time_to_arrive, color = path_order)) +
+  geom_line() +
+  facet_wrap(~floor_date(arrival, unit = "days"), scales = "free") +
+  coord_cartesian(ylim = c(-50,50)) +
+  labs(main = i_path_order)  
+
+ggsave(paste0(i_path_order,".png"), p, device = "png", path = "output")
+}
+
+
+# Let's try to define correlation structure
+d_mod <- d %>% 
+  select(full_id, path_order, time_to_arrive) %>% 
+  group_by(path_order) %>% 
+  filter(n()>200) %>% 
+  ungroup() %>% 
+  filter(!is.na(time_to_arrive)) %>% 
+  spread(path_order, time_to_arrive) %>% 
+  filter(!is.na(S_103S_104S)) %>% 
+  mutate_if(is.numeric, ~as.numeric(scale(., scale = FALSE)))
+
+d_mod2 <- d_mod %>% 
+  select(S_103S_104S, S_104S_106S,S_106S_107S,S_107S_108S) %>% 
+  filter(complete.cases(.))
+
+lm(S_104S_106S ~ S_103S_104S, data = d_mod2)
+lm(S_106S_107S ~ S_103S_104S + S_104S_106S, data = d_mod2)
+lm(S_107S_108S ~ S_106S_107S + S_103S_104S + S_104S_106S, data = d_mod2)
+
+
+d_cor_test <- d %>% 
+  # filter(full_id == '20190402_099300_1..S03R') %>% 
+  select(full_id, arrival, stop_id)
+
+d_full_mod <- d_cor_test %>% 
+  inner_join(d_cor_test, by = "full_id", suffix = c("_start", "_end")) %>% 
+  mutate(travel_time = arrival_end - arrival_start,
+         travel_time = as.numeric(travel_time, unit = "secs")) %>% 
+  select(full_id, stop_id_start,stop_id_end, travel_time ) %>% 
+  filter(travel_time >0)
+
+d_full_mod_simple <- d_full_mod %>% 
+  group_by(stop_id_end, stop_id_start) %>% 
+  tally()
+
+d_full_mod_simple$clusters <- (d_full_mod_simple %>% pull(n) %>% kmeans(c(1,1e3)))$cluster
+
+d_full_mod_filtered <- d_full_mod %>% 
+  semi_join(d_full_mod_simple %>% filter(clusters == 2))
+
+
+full_mod <- glm(travel_time ~ stop_id_start:stop_id_end -1, data = d_full_mod_filtered)
+
 
 
 d %>% 
