@@ -137,9 +137,9 @@ logger.addHandler(ch)
 irt = mtaGTFS.mtaGTFS(subway_group = 'irt', api_key= si.api_key, single_id=True)
 sir = mtaGTFS.mtaGTFS(subway_group = 'sir', api_key= si.api_key, single_id=True)
 l = mtaGTFS.mtaGTFS(subway_group = 'l', api_key= si.api_key, single_id=True)
-nqrw = mtaGTFS.mtaGTFS(subway_group = 'nqrw', api_key= si.api_key, single_id=True)
+# nqrw = mtaGTFS.mtaGTFS(subway_group = 'nqrw', api_key= si.api_key, single_id=True)
 
-nqrw.stationlkp
+#nqrw.stationlkp
 next_call = time.time()
 def loop_update():
     global next_call

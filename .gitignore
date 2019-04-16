@@ -10,3 +10,4 @@ logs/*
 *csv.gz
 my_project/
 python3/
+env/
