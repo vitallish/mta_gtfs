@@ -7,6 +7,7 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 
+import nyct_subway_pb2
 # api_key = si.api_key
 
 def try_date(str_date, str_format=["%D"], log=False):
@@ -111,7 +112,7 @@ class mtaGTFS(object):
                 if(log):
                     print(entity)
                 continue
-            # assigned = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].is_assigned
+            assigned = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].is_assigned
 
             trip_id = ent.trip.trip_id
             start_date = ent.trip.start_date
@@ -125,26 +126,23 @@ class mtaGTFS(object):
             #entity_id = int(entity.id)
             route_id= ent.trip.route_id
 
-            if(len(route_plan) > 0):
-                direction = route_plan[0]
-            else:
-                direction = ''
+
             #Direction 1 = North, Direction 3 = South
-            # direction = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].direction
-            # if direction==1:
-            #     direction="N"
-            # elif direction ==3:
-            #     direction ="S"
-            # else:
-            #     direction = "U"
+            direction = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].direction
+            if direction==1:
+                direction="N"
+            elif direction ==3:
+                direction ="S"
+            else:
+                direction = "U"
             #SIR vs IRT lines have different date formates so we need to try both.
             start_date = try_date(start_date, ["%Y-%m-%d %H:%M:%S","%Y%m%d"]).date()
 
             raw_data = [full_id,entity_id,type,route_id,direction, start_date,route_plan]
-            # if assigned:
-            raw_list.append(raw_data)
-            # else:
-                # raw_unscheduled_list.append(raw_data)
+            if assigned:
+                raw_list.append(raw_data)
+            else:
+                raw_unscheduled_list.append(raw_data)
         pd_columns = ['full_id', 'entity_id', 'type','route_id','direction','start_date','route_plan']
         pd_index = ['type','full_id']
         self.trainIds = pd.DataFrame(columns = pd_columns,
