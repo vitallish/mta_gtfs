@@ -27,15 +27,15 @@ data_to_eval <- recent_data %>%
   mutate(EXP = predict(model, recent_data, type = "response")) %>% 
   select(full_id, path_order, time_to_arrive, EXP, arrival)
 
-
-data_to_eval %>% 
-  filter(path_order %in% path_of_interest) %>% 
-  group_by(full_id) %>% 
-  filter(n()==length(path_of_interest)) %>% # only look at trains with all stops
-  summarise(resid = sum(time_to_arrive - EXP), arrival = min(arrival)) %>% 
-  ggplot(aes(x = arrival, y = resid)) +
-  geom_point() +
-  geom_smooth()
+# 
+# data_to_eval %>% 
+#   filter(path_order %in% path_of_interest) %>% 
+#   group_by(full_id) %>% 
+#   filter(n()==length(path_of_interest)) %>% # only look at trains with all stops
+#   summarise(resid = sum(time_to_arrive - EXP), arrival = min(arrival)) %>% 
+#   ggplot(aes(x = arrival, y = resid)) +
+#   geom_point() +
+#   geom_smooth()
 
 
 data_to_eval %>% 
@@ -62,7 +62,7 @@ d %>% filter(stop_id == start_station) %>%
   mutate(time_to_prev_train = arrival - lag(arrival, order_by = arrival),
          time_to_prev_train = as.numeric(time_to_prev_train, unit = "secs")) %>% 
   filter(time_to_prev_train <quantile(time_to_prev_train, .99, na.rm = T)) %>% 
-  filter(arrival >= look_back_time -lubridate::hours(48)) %>% 
+  filter(arrival >= look_back_time -lubridate::hours(24)) %>% 
   ggplot(aes(x = arrival, y = time_to_prev_train/60)) +
   geom_point() +
   geom_smooth(method = "lm", formula = y ~ ns(x, df = 10))

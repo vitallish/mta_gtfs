@@ -82,7 +82,7 @@ _TRIPREPLACEMENTPERIOD = _descriptor.Descriptor(
     _descriptor.FieldDescriptor(
       name='route_id', full_name='TripReplacementPeriod.route_id', index=0,
       number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=str("", "utf-8"),
+      has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -117,7 +117,7 @@ _NYCTFEEDHEADER = _descriptor.Descriptor(
     _descriptor.FieldDescriptor(
       name='nyct_subway_version', full_name='NyctFeedHeader.nyct_subway_version', index=0,
       number=1, type=9, cpp_type=9, label=2,
-      has_default_value=False, default_value=str("", "utf-8"),
+      has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -152,7 +152,7 @@ _NYCTTRIPDESCRIPTOR = _descriptor.Descriptor(
     _descriptor.FieldDescriptor(
       name='train_id', full_name='NyctTripDescriptor.train_id', index=0,
       number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=str("", "utf-8"),
+      has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -195,14 +195,14 @@ _NYCTSTOPTIMEUPDATE = _descriptor.Descriptor(
     _descriptor.FieldDescriptor(
       name='scheduled_track', full_name='NyctStopTimeUpdate.scheduled_track', index=0,
       number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=str("", "utf-8"),
+      has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
       name='actual_track', full_name='NyctStopTimeUpdate.actual_track', index=1,
       number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=str("", "utf-8"),
+      has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -228,22 +228,26 @@ DESCRIPTOR.message_types_by_name['NyctFeedHeader'] = _NYCTFEEDHEADER
 DESCRIPTOR.message_types_by_name['NyctTripDescriptor'] = _NYCTTRIPDESCRIPTOR
 DESCRIPTOR.message_types_by_name['NyctStopTimeUpdate'] = _NYCTSTOPTIMEUPDATE
 
-class TripReplacementPeriod(_message.Message, metaclass=_reflection.GeneratedProtocolMessageType):
+class TripReplacementPeriod(_message.Message):
+  __metaclass__ = _reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _TRIPREPLACEMENTPERIOD
 
   # @@protoc_insertion_point(class_scope:TripReplacementPeriod)
 
-class NyctFeedHeader(_message.Message, metaclass=_reflection.GeneratedProtocolMessageType):
+class NyctFeedHeader(_message.Message):
+  __metaclass__ = _reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _NYCTFEEDHEADER
 
   # @@protoc_insertion_point(class_scope:NyctFeedHeader)
 
-class NyctTripDescriptor(_message.Message, metaclass=_reflection.GeneratedProtocolMessageType):
+class NyctTripDescriptor(_message.Message):
+  __metaclass__ = _reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _NYCTTRIPDESCRIPTOR
 
   # @@protoc_insertion_point(class_scope:NyctTripDescriptor)
 
-class NyctStopTimeUpdate(_message.Message, metaclass=_reflection.GeneratedProtocolMessageType):
+class NyctStopTimeUpdate(_message.Message):
+  __metaclass__ = _reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _NYCTSTOPTIMEUPDATE
 
   # @@protoc_insertion_point(class_scope:NyctStopTimeUpdate)

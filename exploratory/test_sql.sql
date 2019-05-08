@@ -6,3 +6,4 @@ select * from stops where stop_id like '%S'and (
 )
 
 ;
+
