@@ -7,6 +7,7 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 
+import nyct_subway_pb2
 # api_key = si.api_key
 
 def try_date(str_date, str_format=["%D"], log=False):
@@ -33,7 +34,7 @@ def connect_to_mysql(si, echo = False):
 
 
 class mtaGTFS(object):
-    def __init__(self, subway_group = "irt", api_key=None, buildTables = True, single_id = False):
+    def __init__(self, subway_group = "irt", api_key=None, buildTables = True, single_id = False, past = None):
         """ Inits mtaGTFS with the following arguments
         Args:
             subway_group (str): which subway type to read in. {"irt", "l", "sir"}
@@ -46,15 +47,20 @@ class mtaGTFS(object):
         """
         self.subway_group = subway_group
         self.feed = gtfs_realtime_pb2.FeedMessage()
-        self.urls = {'irt' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=1",
-                        'l':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=2",
-                        'sir' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=11",
-                        'nqrw': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=16",
-                        'ace': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=26",
-                        'bdfm':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=21",
-                        'g': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=31",
-                        'jz': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=36",
-                        '7':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=51"}
+        if(past is None):
+            self.urls = {
+                'irt' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=1",
+                'l':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=2",
+                'sir' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=11",
+                'nqrw': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=16",
+                'ace': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=26",
+                'bdfm':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=21",
+                'g': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=31",
+                'jz': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=36",
+                '7':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=51"
+        }
+        else:
+            self.urls = {'irt' : 'https://datamine-history.s3.amazonaws.com/gtfs-' + past}
 
         self.timePulled = None
         self.trainIds = None
@@ -106,7 +112,7 @@ class mtaGTFS(object):
                 if(log):
                     print(entity)
                 continue
-            # assigned = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].is_assigned
+            assigned = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].is_assigned
 
             trip_id = ent.trip.trip_id
             start_date = ent.trip.start_date
@@ -120,26 +126,23 @@ class mtaGTFS(object):
             #entity_id = int(entity.id)
             route_id= ent.trip.route_id
 
-            if(len(route_plan) > 0):
-                direction = route_plan[0]
-            else:
-                direction = ''
+
             #Direction 1 = North, Direction 3 = South
-            # direction = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].direction
-            # if direction==1:
-            #     direction="N"
-            # elif direction ==3:
-            #     direction ="S"
-            # else:
-            #     direction = "U"
+            direction = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].direction
+            if direction==1:
+                direction="N"
+            elif direction ==3:
+                direction ="S"
+            else:
+                direction = "U"
             #SIR vs IRT lines have different date formates so we need to try both.
             start_date = try_date(start_date, ["%Y-%m-%d %H:%M:%S","%Y%m%d"]).date()
 
             raw_data = [full_id,entity_id,type,route_id,direction, start_date,route_plan]
-            # if assigned:
-            raw_list.append(raw_data)
-            # else:
-                # raw_unscheduled_list.append(raw_data)
+            if assigned:
+                raw_list.append(raw_data)
+            else:
+                raw_unscheduled_list.append(raw_data)
         pd_columns = ['full_id', 'entity_id', 'type','route_id','direction','start_date','route_plan']
         pd_index = ['type','full_id']
         self.trainIds = pd.DataFrame(columns = pd_columns,
