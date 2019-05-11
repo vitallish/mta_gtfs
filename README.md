@@ -27,3 +27,20 @@ subway_group can be either 'irt', 'l', or 'sir' for each train type. Once the ob
 5. Open up your mysql database to remote connections
    This probably involves updating the bind_address
 6. Write the stops.txt file to the stops TABLE
+
+# venv Setup
+
+```python
+python3 -m venv env
+source env/bin/activate
+pip install -r requirements.txt
+```
+
+# Update protobuf files
+
+Run the following command in the working directory
+
+```bash
+bash protobuf/compile_protobuf.sh
+```
+This will download the needed files and compile them for use in python.

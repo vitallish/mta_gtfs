@@ -1,6 +1,6 @@
 #!/bin/sh
 
-git checkout -- .
-git pull
+#git checkout -- .
+# git pull
 
 python run_maindef.py

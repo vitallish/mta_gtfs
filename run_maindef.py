@@ -1,5 +1,5 @@
 import sensative_info as si
-import python3_mtagtfs as mtaGTFS
+import mtaGTFS as mtaGTFS
 import sqlalchemy
 import pandas as pd
 import numpy as np
@@ -146,9 +146,11 @@ def loop_update():
     next_call += 30
     try:
         session.execute(metadata.tables['enroute_trains'].delete())
-
+        current_obj = irt
         push_to_db(irt)
+        current_obj = l
         push_to_db(l)
+        current_obj = sir
         push_to_db(sir)
         # push_to_db(nqrw)
 

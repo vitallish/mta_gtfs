@@ -1,23 +1,14 @@
-__author__ = 'Lolhaven'
-
-# Station Service
-url_service = "http://web.mta.info/status/serviceStatus.txt"
-#base packages
-import urllib
-import time
-import re
-from datetime import datetime
-
-#pip installed
 from google.transit import gtfs_realtime_pb2
-# pip install --upgrade gtfs-realtime-bindings
+import requests
+import time # imports module for Epoch/GMT time conversion
+import os
+# import sensative_info as si
+from datetime import datetime
 import pandas as pd
 import numpy as np
 
-#local files
 import nyct_subway_pb2
-
-
+# api_key = si.api_key
 
 def try_date(str_date, str_format=["%D"], log=False):
     # function takes a list of possible date formats (str_format) and tries them
@@ -41,8 +32,9 @@ def connect_to_mysql(si, echo = False):
     engine_text ='mysql+mysqldb://' + si.db_user + ':'+si.db_pass+'@' + si.db_host + ':'+si.db_port+'/'+si.db_table
     return sqlalchemy.create_engine(engine_text, echo = echo)
 
+
 class mtaGTFS(object):
-    def __init__(self, subway_group = "irt", api_key=None, buildTables = True, single_id = False):
+    def __init__(self, subway_group = "irt", api_key=None, buildTables = True, single_id = False, past = None):
         """ Inits mtaGTFS with the following arguments
         Args:
             subway_group (str): which subway type to read in. {"irt", "l", "sir"}
@@ -55,32 +47,34 @@ class mtaGTFS(object):
         """
         self.subway_group = subway_group
         self.feed = gtfs_realtime_pb2.FeedMessage()
-        self.urls = {'irt' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=1",
-                        'l':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=2",
-                        'sir' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=11",
-                        'nqrw': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=16",
-                        'ace': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=26",
-                        'bdfm':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=21",
-                        'g': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=31",
-                        'jz': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=36",
-                        '7':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=51"}
+        if(past is None):
+            self.urls = {
+                'irt' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=1",
+                'l':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=2",
+                'sir' : "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=11",
+                'nqrw': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=16",
+                'ace': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=26",
+                'bdfm':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=21",
+                'g': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=31",
+                'jz': "http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=36",
+                '7':"http://datamine.mta.info/mta_esi.php?key="+api_key+"&feed_id=51"
+        }
+        else:
+            self.urls = {'irt' : 'https://datamine-history.s3.amazonaws.com/gtfs-' + past}
 
         self.timePulled = None
         self.trainIds = None
         self.stationlkp = None
         self.enrouteTrains = None
         self.unscheduledTrains = None
-
         self.updateFeed(buildTables,single_id)
 
     def updateFeed(self, buildTables = True, single_id = False):
         self.timePulled = datetime.now()
-        self.response = urllib.urlopen(self.urls[self.subway_group])
-        self.binText = self.response.read()
+        self.response = requests.get(self.urls[self.subway_group])
 
-        self.feed.ParseFromString(self.binText)
+        self.feed.ParseFromString(self.response.content)
         self.timeFeed = datetime.fromtimestamp(self.feed.header.timestamp)
-
         if buildTables:
             self.buildTrainIds()
             self.buildAllStops(single_id)
@@ -95,9 +89,10 @@ class mtaGTFS(object):
         try:
             return self.feed.entity[id-1]
         except IndexError:
-            print "Here is the id attempted: " + str(id)
-            print "Max size:" + str(len(self.feed.entity))
+            print("Here is the id attempted: " + str(id))
+            print("Max size:" + str(len(self.feed.entity)))
             raise
+
 
     def buildTrainIds(self, log = False):
         #creates a full list of all train ids
@@ -115,7 +110,7 @@ class mtaGTFS(object):
                 ent = entity.vehicle
             else:
                 if(log):
-                    print entity
+                    print(entity)
                 continue
             assigned = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].is_assigned
 
@@ -131,6 +126,7 @@ class mtaGTFS(object):
             #entity_id = int(entity.id)
             route_id= ent.trip.route_id
 
+
             #Direction 1 = North, Direction 3 = South
             direction = ent.trip.Extensions[nyct_subway_pb2.nyct_trip_descriptor].direction
             if direction==1:
@@ -142,7 +138,7 @@ class mtaGTFS(object):
             #SIR vs IRT lines have different date formates so we need to try both.
             start_date = try_date(start_date, ["%Y-%m-%d %H:%M:%S","%Y%m%d"]).date()
 
-            raw_data = [full_id,entity_id,type,route_id,direction,start_date,route_plan]
+            raw_data = [full_id,entity_id,type,route_id,direction, start_date,route_plan]
             if assigned:
                 raw_list.append(raw_data)
             else:
@@ -160,7 +156,7 @@ class mtaGTFS(object):
         out = [self.getEntity(ent_id) for ent_id in ent_iter]
         if log:
             for item in out:
-                print item
+                print(item)
         return out
     def getStops(self, full_id):
         # gets all the scheduled stops for a train with a particular id. These
@@ -172,9 +168,9 @@ class mtaGTFS(object):
             #print(full_id +" has multiple entries in trainIds.")
 
         #entity_num = int(self.trainIds.ix[select_row,'entity_id'])
-        entity_num = self.trainIds.ix[('scheduled',full_id),'entity_id']
+        entity_num = self.trainIds.loc[('scheduled',full_id),'entity_id']
         if(type(entity_num) is not np.int64):
-            print 'some weird double, choosing first one:', full_id
+            print('some weird double, choosing first one:' + full_id)
             entity_num = int(entity_num[0])
 
         stops = self.getEntity(entity_num).trip_update.stop_time_update
@@ -208,10 +204,11 @@ class mtaGTFS(object):
         Raises:
             N/A
         """
+        type(1)
         # select_row = (self.trainIds.full_id == full_id) & (self.trainIds.type =='enroute')
-        entity_num = self.trainIds.ix[('enroute',full_id),'entity_id']
+        entity_num = self.trainIds.loc[('enroute',full_id),'entity_id']
         if(type(entity_num) is not np.int64):
-            print 'some weird double, choosing first one:', full_id
+            print('some weird double, choosing first one:' + full_id)
             entity_num = int(entity_num[0])
         vehicle = self.getEntity(entity_num).vehicle
 
@@ -238,10 +235,10 @@ class mtaGTFS(object):
                    'current_stop_sequence':current_stop_sequence}
         return out
     def getUniqueTrains(self, type):
-        train_ids = self.trainIds.ix[type].index
+        train_ids = self.trainIds.loc[type].index
         if(not train_ids.is_unique):
             #raise an error here
-            print type + " trains' Ids are not unique"
+            print(type + " trains' Ids are not unique")
         return train_ids.unique()
 
     def buildAllEnroute(self):
@@ -285,7 +282,7 @@ class mtaGTFS(object):
             self.scheduledStops = out.sort_index()
         else:
             out.set_index(['full_id','stop_id'], inplace = True)
-            self.scheduledStops = out.sortlevel(0)
+            self.scheduledStops = out.sort_index()
 
 
 
@@ -299,6 +296,7 @@ class mtaGTFS(object):
 
 
         if os.path.isfile('stops.txt'):
+            # check http://web.mta.info/developers/data/nyct/subway/google_transit.zip for updated stops.txt
             self.stationlkp= pd.read_csv('stops.txt')
             self.stationlkp = self.stationlkp[['stop_id','stop_name','stop_lat','stop_lon']]
         else:
@@ -328,19 +326,3 @@ class mtaGTFS(object):
         type_sel = (self.trainIds.type == type_t)
 
         return self.trainIds.full_id[(route_sel * dir_sel *date_sel * type_sel)==1]
-
-
-    # def x_makeFullId(self, ent):
-    # #TODO  something doesn't work here. figure this shit out later.
-        # if(ent.HasField('trip_update')):
-            # ent = ent.trip_update
-        # elif(ent.HasField('vehicle')):
-            # ent = ent.vehicle
-
-        # trip_id = ent.trip.trip_id
-        # start_date = ent.trip.start_date
-        # full_id = start_date + "_" + trip_id
-        # return full_id
-
-#sir = mtaGTFS(url_sir,offline = True)
-#subs = mtaGTFS(url_gtfs, offline = True)
