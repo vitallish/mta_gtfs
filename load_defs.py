@@ -1,5 +1,3 @@
-__author__ = 'Lolhaven'
-
 import pandas as pd
 import sqlalchemy
 import sensative_info as si
