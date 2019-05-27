@@ -9,3 +9,4 @@ dbConstants*
 logs/*
 *csv.gz
 env/
+db-data/

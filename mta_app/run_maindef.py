@@ -153,7 +153,6 @@ def loop_update():
         current_obj = sir
         push_to_db(sir)
         # push_to_db(nqrw)
-
     except Exception as e:
         logger.error(str(e))
         # added to revert any database push errors that may occur

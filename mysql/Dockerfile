@@ -1,4 +1,4 @@
-FROM mysql
+FROM mysql:5.6
 
 #RUN mkdir /usr/src/db
 #WORKDIR /usr/src/db

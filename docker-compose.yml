@@ -2,18 +2,31 @@ version: '3'
 
 services:
         db:
-                image: vitallish/mta-app-db
-                restart: always
+                #image: vitallish/mta-app-db
+                build: ./mysql
+                restart: unless-stopped
                 command: --default-authentication-plugin=mysql_native_password
                 env_file:
                         - mta-app-constants.env
+                volumes:
+                        - ./db-data:/var/lib/mysql
                 ports: 
-                        - "33061:3306"
+                        - "0.0.0.0:3306:3306"
+                          #                network_mode: "host"
         app-build:
-                image: vitallish/mta-app
+                #image: vitallish/mta-app
+                build: ./mta_app
                 restart: on-failure
                 command: ["python", "./load_defs.py"]
                 env_file:
                         - mta-app-constants.env
                 depends_on:
                         - db
+        app-main:
+                #image: vitallish/mta-app
+                build: ./mta_app
+                restart: unless-stopped
+                env_file:
+                        - mta-app-constants.env
+                depends_on:
+                        - app-build
